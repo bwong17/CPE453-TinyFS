@@ -1,7 +1,11 @@
-// Test
-#include<stdio.h>
+int openDisk(char *filename, int nBytes) {
+	return 0;
+}
 
-int main(void) {
-	printf("test");
+int readBlock(int disk, int bNum, void *block) {
+	return 0;
+}
+
+int writeBlock(int disk, int bNum, void *block) {
 	return 0;
 }
