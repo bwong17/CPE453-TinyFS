@@ -32,6 +32,7 @@ int openDisk(char *filename, int nBytes) {
 }
 
 int readBlock(int disk, int bNum, void *block) {
+    
     int bytesRead;
     bytesRead = -1;
     
@@ -45,5 +46,15 @@ int readBlock(int disk, int bNum, void *block) {
 }
 
 int writeBlock(int disk, int bNum, void *block) {
-	return 0;
+
+    int bytesWritten;
+    bytesWritten = -1;
+    
+    lseek(disk, 0, SEEK_SET);
+
+    if((bytesWritten = pwrite(disk, block, BLOCKSIZE, bNum)) == -1){
+        printf("Error:%s %d\n", strerror(errno), disk);
+        return -1;
+    } else
+        return 0;
 }

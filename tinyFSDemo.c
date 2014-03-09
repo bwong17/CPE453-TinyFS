@@ -6,13 +6,18 @@
 int main(void) {
     int file;
     char buffer[BLOCKSIZE];
+    char block[] = {'B','B','B','B','B'};
     
     file = openDisk("test",256);
     
-    printf("FD in main: %d\n", file);
     readBlock(file, 0, buffer);
     
-    printf("%s", buffer);
+    printf("%s\n\n", buffer);
 
+    writeBlock(file, 0, block); 
+   
+    readBlock(file, 0, buffer);
+
+    printf("%s\n\n", buffer);
     return 0;
 } 
