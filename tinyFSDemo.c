@@ -11,13 +11,10 @@ int main(void) {
     file = openDisk("test",256);
     
     readBlock(file, 0, buffer);
-    
     printf("%s\n\n", buffer);
-
     writeBlock(file, 0, block); 
-   
     readBlock(file, 0, buffer);
-
     printf("%s\n\n", buffer);
+	
     return 0;
 } 
