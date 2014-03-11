@@ -1,20 +1,13 @@
-#include "libDisk.h"
-#include "libTinyFS.h"
-
 #include <stdio.h>
+#include "libTinyFS.h"
 
 int main(void) {
     int file;
     char buffer[BLOCKSIZE];
-    char block[] = {'B','B','B','B','B'};
     
-    file = openDisk("test",256);
+    tfs_mkfs("test/test1",BLOCKSIZE);
     
-    readBlock(file, 0, buffer);
-    printf("%s\n\n", buffer);
-    writeBlock(file, 0, block); 
-    readBlock(file, 0, buffer);
-    printf("%s\n\n", buffer);
-	
+    tfs_mount("test/test1");
+
     return 0;
 } 

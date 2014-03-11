@@ -17,17 +17,16 @@ int openDisk(char *filename, int nBytes)
 	char buffer[nBytes];
 
 	file = open(filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-	if(file) {
-		if(nBytes > 0) {
-			for(i = 0; i < nBytes; i++)
-				buffer[i] = 0x41;
-			write(file, buffer, nBytes);
-		}
-		if(!nBytes)
-			return -1;
-	} else
-		return -1;
-	return (int)file;
+        if(file) {
+            if(nBytes > 0) {
+                for(i = 0; i < nBytes; i++)
+                    buffer[i] = 0;
+                write(file, buffer, nBytes);
+            }
+        } else
+            return -1;
+        
+        return (int)file;
 }
 
 int readBlock(int disk, int bNum, void *block)
@@ -47,11 +46,10 @@ int readBlock(int disk, int bNum, void *block)
 int writeBlock(int disk, int bNum, void *block)
 {
 	int bytesWritten;
-	bytesWritten = -1;
 
 	lseek(disk, 0, SEEK_SET);
 
-	if((bytesWritten = pwrite(disk, block, BLOCKSIZE, bNum)) == -1) {
+	if((bytesWritten = pwrite(disk, block, BLOCKSIZE, bNum * BLOCKSIZE)) == -1) {
 		printf("Error:%s %d\n", strerror(errno), disk);
 		return -1;
 	} else

@@ -9,26 +9,22 @@ typedef int fileDescriptor;
 
 /* must contain the magic number, pointer to root inode, and the free block-list implementation */
 typedef struct {
-	int blockCode = 1;
 } superBlock;
 
 /* must contain the name of the file, the file size and a data block indexing implementation */
 typedef struct {
-	int blockCode = 2;
 	char *filename;
 	int fileSize;
 } inodeBlock;
 
 /* contains block# of the inode block */
 typedef struct {
-	int blockCode = 3;
 	int inodeBlock;
 	void *next;
 } fileExtentBlock;
 
 /* is ready for future writes */
 typedef struct {
-	int blockCode = 4;
 } freeBlock;
 
 /* Makes a blank TinyFS file system of size nBytes on the file specified by ‘filename’. This function should use the emulated disk library to open the specified file, and upon success, format the file to be mountable. This includes initializing all data to 0x00, setting magic numbers, initializing and writing the superblock and inodes, etc. Must return a specified success/error code. */
