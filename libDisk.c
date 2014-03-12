@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include "TinyFS_errno.h"
 #include "libDisk.h"
 #include "libTinyFS.h"
 
@@ -24,7 +25,7 @@ int openDisk(char *filename, int nBytes)
                 write(file, buffer, nBytes);
             }
         } else
-            return -1;
+            return ERR_BADFILE;
         
         return (int)file;
 }
@@ -38,7 +39,7 @@ int readBlock(int disk, int bNum, void *block)
 
 	if ((bytesRead = pread(disk, block, BLOCKSIZE, bNum * BLOCKSIZE)) == -1) {
 		printf("Error:%s %d\n", strerror(errno), disk);
-		return -1;
+		return ERR_BADREAD;
 	} else
 		return 0;
 }
@@ -51,7 +52,7 @@ int writeBlock(int disk, int bNum, void *block)
 
 	if((bytesWritten = pwrite(disk, block, BLOCKSIZE, bNum * BLOCKSIZE)) == -1) {
 		printf("Error:%s %d\n", strerror(errno), disk);
-		return -1;
+		return ERR_BADWRITE;
 	} else
 		return 0;
 }

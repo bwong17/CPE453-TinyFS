@@ -2,3 +2,6 @@
 #define ERR_FILEMOUNTED -2
 #define ERR_BADFS -3
 #define ERR_FILE_ALREADY_UNMOUNTED -4
+#define ERR_BADFILE -5
+#define ERR_BADREAD -6
+#define ERR_BADWRITE -7
