@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <fcntl.h>
+
 #include "libDisk.h"
 #include "libTinyFS.h"
 #include "TinyFS_errno.h"
@@ -63,11 +65,20 @@ int tfs_unmount() {
 
 fileDescriptor tfs_openFile(char *name)
 {
-    return 0;
+    int fd = ERR_BADFILE;
+
+    if(disk_mount)
+        fd = openDisk(disk_mount, BLOCKSIZE);
+    else
+        return ERR_FILENOTMOUNTED;
+
+    //create dynamic resource table that can be used to reference this file while filesyste, is mounted
+    return fd;
 }
 
 int tfs_closeFile(fileDescriptor FD)
 {
+    //return close(FD);
     return 0;
 }
 
