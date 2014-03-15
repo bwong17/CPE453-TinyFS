@@ -7,3 +7,4 @@
 #define ERR_BADREAD -7
 #define ERR_BADWRITE -8
 #define ERR_NOMORESPACE -9
+#define ERR_FILENOTOPEN -10
