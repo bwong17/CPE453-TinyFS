@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <fcntl.h>
 
 #include "libDisk.h"
@@ -48,13 +49,13 @@ int removeDrtNode(fileDescriptor fd) {
 			dynamicResourceTable = dynamicResourceTable->next;
 		else
 			dynamicResourceTable = NULL;
-	else
+        else
 		// if we are not at the end of the list
 		if (temp->next)
 			prev->next = temp->next;
 		else
 			prev->next = NULL;
-	
+        
 	// temp is always pointing at the node that we want to remove from the list
 	free(temp);
 
@@ -144,7 +145,7 @@ fileDescriptor tfs_openFile(char *name) {
 	for (i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE; i++) {
 		if (readBlock(fd, i, buff) < 0)
 			return ERR_NOMORESPACE;  
-		if (buff[0] == 3)
+		if (buff[0] == 4)
 			break;
 	}
 	// buff is now a template of the inode block
@@ -171,13 +172,82 @@ fileDescriptor tfs_openFile(char *name) {
 
 int tfs_closeFile(fileDescriptor FD)
 {
-	//return close(FD);
 	return removeDrtNode(FD);
 }
 
 int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
 {
-	return 0 ;
+
+    int i,startIndex, endIndex, j, fd, numBlocks, found = 1;
+    char buff[BLOCKSIZE];
+    char *fileName;
+    drt_t *temp = dynamicResourceTable;
+
+    numBlocks = ceil((double)size / (double)BLOCKSIZE);
+
+    temp += FD;
+    fileName = temp->fileName;
+    
+    if(disk_mount)
+        fd = openDisk(disk_mount, BLOCKSIZE);
+    else
+	return ERR_FILENOTMOUNTED;
+    
+    /* NOTE: super block not set correctly */
+
+    /* find first free "numBlocks" block occurences to write to */
+    for (i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE; i++) {
+        if (readBlock(fd, i, buff) < 0)
+            return ERR_NOMORESPACE;
+        if (buff[0] == 4){
+            for(j = i; j < i+numBlocks; j++){
+                if (readBlock(fd, j, buff) < 0)
+                    return ERR_NOMORESPACE;  
+                if (buff[0] != 4)
+                    found = 0;
+            }
+            if(found)
+                break;
+        }
+    }
+    if(!found)
+        return ERR_NOFREEBLOCKFOUND;
+
+    startIndex = i;
+    endIndex = j;
+    
+    /* setting template to make (write) file extents*/
+    buff[0] = 3;
+    buff[1] = 0x45;
+    
+    for(i = startIndex; i <= endIndex; i++){
+        if(i != endIndex)
+            buff[2] = i+1;
+        else
+            buff[2] = 0;
+
+        strncpy(buff+4,buffer,BLOCKSIZE-4);
+        writeBlock(fd, i, buff); 
+    }
+    
+    /* inode update (1st block occurrence and size) */
+    for(i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE || !found; i++){
+        if(readBlock(fd, i, buff) < 0)
+            return ERR_NOMORESPACE;
+        if(buff[0] == 2){
+            if(!strcmp(fileName, buff+4)){
+                buff[2] = startIndex;
+                buff[13] = (numBlocks & 0xFF00)>>8;
+                buff[14] = numBlocks & 0x00FF;
+                writeBlock(fd, i, buff);
+                found = 1;
+            }
+        }
+    }
+    if(!found)
+        return ERR_NOINODEFOUND;
+
+    return 1;
 }
 
 int tfs_deleteFile(fileDescriptor FD)
@@ -194,5 +264,3 @@ int tfs_seek(fileDescriptor FD, int offset)
 {
 	return 0;
 }
-
-
