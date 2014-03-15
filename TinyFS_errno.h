@@ -6,3 +6,4 @@
 #define ERR_BADFILE -6
 #define ERR_BADREAD -7
 #define ERR_BADWRITE -8
+#define ERR_NOMORESPACE -9
