@@ -381,8 +381,9 @@ int tfs_deleteFile(fileDescriptor FD)
 					return ERR_READONLY;
 				found = 1;
 				firstBlock = buff[2];
-				size = (buff[13] << 8) || buff[14]; 
-				numBlocks = (int)ceil((double)size / (double)BLOCKSIZE);
+				size = (buff[13] << 8) & 0xFF00;
+				size = size | (buff[14] & 0x00FF); 
+				numBlocks = size;
 				break;
 			}
 		}
@@ -733,8 +734,9 @@ int tfs_writeByte(fileDescriptor FD, unsigned char data) {
 }
 
 int tfs_defrag() {
-	int i, fd, firstFree = 0;
-	char buff[BLOCKSIZE];
+	int i, j, fd, firstFree = 0;
+	char buff[BLOCKSIZE], tempBuff[BLOCKSIZE];
+	int size;
 
 	if(disk_mount)
 		fd = openDisk(disk_mount, 0);
@@ -748,7 +750,23 @@ int tfs_defrag() {
 		else if(buff[0] == 4) {
 			continue;
 		}
-		else {
+		else if(firstFree != 0){
+			if(buff[0] == 2) {
+				size = (buff[13] << 8) & 0xFF00;
+				size = size | (buff[14] & 0x00FF); 
+				for(j = buff[2]; j < buff[2] + size; j++) {
+					readBlock(fd, j, tempBuff);
+					tempBuff[3] = (char)firstFree;
+					writeBlock(fd, j, tempBuff);
+				}
+			}
+			else if(buff[0] == 3){
+				readBlock(fd, buff[3], tempBuff);
+				if(tempBuff[2] == i){
+					tempBuff[2] = firstFree;
+				}
+				writeBlock(fd, buff[3], tempBuff);
+			}
 			writeBlock(fd, firstFree, buff);
 			buff[0] = 4;
 			writeBlock(fd, i, buff);
