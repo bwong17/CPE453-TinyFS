@@ -5,6 +5,7 @@ int main(void) {
     
     int file1, file2;
     char buffer[BLOCKSIZE] = {"Andrew and Barbara"};
+    char read;
     
     printf("TFS Make FS %d\n",tfs_mkfs("tinyFSDisk",DEFAULT_DISK_SIZE));
 
@@ -16,6 +17,10 @@ int main(void) {
     printf("TFS Write File 2: %d\n",tfs_writeFile(file2, buffer, sizeof(buffer)));
 
     printf("TFS Delete File 1: %d\n",tfs_deleteFile(file1));
-    
+
+    printf("TFS Read Byte File 2: %d\n",tfs_readByte(file2,&read));
+    printf("TFS Read Byte File 2: %d\n",tfs_readByte(file2,&read));
+    printf("TFS Read Byte File 2: %d\n",tfs_readByte(file2,&read));
+    printf("TFS Read Byte File 2: %d\n",tfs_readByte(file2,&read));
     return 0;
 } 

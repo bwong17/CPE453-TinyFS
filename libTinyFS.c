@@ -183,8 +183,12 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
 
     numBlocks = ceil((double)size / (double)BLOCKSIZE);
 
-    for(i = 0; i < FD; i++)
+    while(temp){
+        if(temp->id == FD){
+            break;
+        }
         temp = temp->next;
+    }
     fileName = temp->fileName;
     
     if(disk_mount)
@@ -256,8 +260,12 @@ int tfs_deleteFile(fileDescriptor FD)
     char *fileName;
     drt_t *temp = dynamicResourceTable;
 
-    for(i = 0; i < FD; i++)
+    while(temp){
+        if(temp->id == FD){
+            break;
+        }
         temp = temp->next;
+    }
     fileName = temp->fileName;
     if(disk_mount)
         fd = openDisk(disk_mount, 0);
@@ -305,7 +313,48 @@ int tfs_deleteFile(fileDescriptor FD)
 
 int tfs_readByte(fileDescriptor FD, char *buffer)
 {
-	return 0;
+    int i, fd, size, firstBlock, numBlocks, currBlock, tempFP;
+    int found = 0;
+    char buff[BLOCKSIZE];
+    char *fileName;
+    drt_t *temp = dynamicResourceTable;
+
+    while(temp){
+        if(temp->id == FD){
+            break;
+        }
+        temp = temp->next;
+    }
+    fileName = temp->fileName;
+    if(disk_mount)
+        fd = openDisk(disk_mount, 0);
+    else
+	return ERR_FILENOTMOUNTED;
+
+    /* looking for inode block */
+    for(i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE || !found; i++){
+        if(readBlock(fd, i, buff) < 0)
+            return ERR_NOMORESPACE;
+        if(buff[0] == 2){
+            if(!strcmp(fileName, buff+4)){
+                found = 1;
+                firstBlock = buff[2];
+                size = (buff[13] << 8) || buff[14]; 
+                numBlocks = (int)ceil((double)size / (double)BLOCKSIZE);
+                break;
+            }
+        }
+    }
+    if(!found)
+        return ERR_NOINODEFOUND;
+    
+    currBlock = (int)floor(((double)temp->fileptr+1) / (double)BLOCKSIZE);
+    tempFP = temp->fileptr - (BLOCKSIZE * currBlock);
+    readBlock(fd,currBlock+firstBlock,buff); 
+    *buffer = buff[tempFP+4];
+    temp->fileptr++;
+    close(fd);
+    return 1;
 }
 
 int tfs_seek(fileDescriptor FD, int offset)
