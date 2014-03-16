@@ -16,9 +16,10 @@ int openDisk(char *filename, int nBytes)
 	int file;
 	int i;
 	char buffer[nBytes];
+	
 
-	file = open(filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-        if(file) {
+	file = !nBytes ? open(filename, O_RDWR, S_IRUSR | S_IWUSR) : open(filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+        if(file > 0) {
             if(nBytes > 0) {
                 for(i = 0; i < nBytes; i++)
                     buffer[i] = 0;
