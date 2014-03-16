@@ -4,6 +4,7 @@
 #include <math.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "libDisk.h"
 #include "libTinyFS.h"
@@ -162,8 +163,9 @@ fileDescriptor tfs_openFile(char *name) {
 	int fd = ERR_BADFILE;
 	char buff[BLOCKSIZE];
 	int i = 0;
+	int found = 0;
 
-	// check if we have a mounted disk
+	/* check if we have a mounted disk */
 	if(disk_mount)
 		if (checkIfAlreadyOpen(name) >= 0)
 			return checkIfAlreadyOpen(name);
@@ -172,44 +174,67 @@ fileDescriptor tfs_openFile(char *name) {
 	else
 		return ERR_FILENOTMOUNTED;
 
-
-	// find first free location to place an inode block
-	for (i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE; i++) {
-		if (readBlock(fd, i, buff) < 0)
-			return ERR_NOMORESPACE;  
-		if (buff[0] == 4)
-			break;
+	/* Loop over inode blocks to see if file already exists */
+	for(i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE && !found; i++){
+		if(readBlock(fd, i, buff) < 0)
+			return ERR_NOMORESPACE;
+		if(buff[0] == 2){
+			printf("FOUND FILE : %s", buff+4);
+			if(!strcmp(name, buff+4)){
+				found = 1;
+				break;
+			}
+		}
 	}
-	// buff is now a template of the inode block
-	// i is the block number of the soon to be inode
-	// label it as an inode
-	// copy name to front end
-	buff[0] = 2; // set as inode block
-	buff[3] = 1; // set as RW by default
-	memcpy(buff+4, name, strlen(name));
-	writeBlock(fd, i, buff);
 
-        if(DEBUG)
-             printf("Created inode block with filename %s\n",buff+4);
+	time_t now = time(0);
 
-	// add a new entry in drt that refers to this filename
-	// returns a fileDescriptor (temp->id)
+	if (!found) {
+		/* find first free location to place an inode block */
+		for (i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE; i++) {
+			if (readBlock(fd, i, buff) < 0)
+				return ERR_NOMORESPACE;
+			if (buff[0] == 4)
+				break;
+		}
+		/* buff is now a template of the inode block
+		 * i is the block number of the soon to be inode
+		 * label it as an inode
+		 * opy name to front end
+		 */
+		buff[0] = 2; // set as inode block
+		buff[3] = 1; // set as RW by default
+		memcpy(buff+4, name, strlen(name));
+
+		memcpy(buff+15, &now, sizeof(time_t)); /* set creation time */
+		memcpy(buff+19, &now, sizeof(time_t)); /* set access time */
+		memcpy(buff+23, &now, sizeof(time_t)); /* set modification time */
+		writeBlock(fd, i, buff);
+
+		if(DEBUG)
+			printf("Created inode block with filename %s\n",buff+4);
+	} else {
+		memcpy(buff+19, &now, sizeof(time_t)); // set access time
+	}
+
+	/* add a new entry in drt that refers to this filename
+	 *     returns a fileDescriptor (temp->id) */
 	drt_t *temp;
 	if (dynamicResourceTable == NULL) {
 		temp = calloc(1, sizeof(drt_t));
 		temp->fileName = name;
 		temp->access = 1;
 		dynamicResourceTable = temp;
-        
-        if(DEBUG)
-            printf("Created first dynamic resource table node with filename %s\n",temp->fileName);
+
+		if(DEBUG)
+			printf("Created first dynamic resource table node with filename %s\n",temp->fileName);
 
 	} else {
 		temp = addDrtNode(name, dynamicResourceTable, buff[3]);
 	}
-	
-        
-        close(fd);
+
+
+	close(fd);
 
 	return temp->id;
 }
@@ -307,6 +332,9 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
 	buff[2] = startIndex;
 	buff[13] = (numBlocks & 0xFF00)>>8;
 	buff[14] = numBlocks & 0x00FF;
+	time_t now = time(0);
+	memcpy(buff+19, &now, sizeof(time_t)); // set access time
+	memcpy(buff+23, &now, sizeof(time_t)); // set modification time
 	writeBlock(fd, inode, buff);
 	
         if(DEBUG)
@@ -389,12 +417,12 @@ int tfs_readByte(fileDescriptor FD, char *buffer)
 	char buff[BLOCKSIZE];
 	char *fileName;
 	drt_t *temp = dynamicResourceTable;
-	
+
 	if(disk_mount)
 		fd = openDisk(disk_mount, 0);
 	else
 		return ERR_FILENOTMOUNTED;
-	
+
 	while(temp){
 		if(temp->id == FD){
 			break;
@@ -414,8 +442,11 @@ int tfs_readByte(fileDescriptor FD, char *buffer)
 		if(buff[0] == 2){
 			if(!strcmp(fileName, buff+4)){
 				found = 1;
+				time_t now = time(0);
+				memcpy(buff+19, &now, sizeof(time_t)); // set access time
+				writeBlock(fd, i, buff);
 				firstBlock = buff[2];
-				size = (buff[13] << 8) || buff[14]; 
+				size = (buff[13] << 8) || buff[14];
 				numBlocks = (int)ceil((double)size / (double)BLOCKSIZE);
 				break;
 			}
@@ -426,24 +457,30 @@ int tfs_readByte(fileDescriptor FD, char *buffer)
 
 	currBlock = (int)floor(((double)temp->fileptr+1) / (double)BLOCKSIZE);
 	tempFP = temp->fileptr - (BLOCKSIZE * currBlock);
-	
-	readBlock(fd,currBlock+firstBlock,buff); 
+
+	readBlock(fd,currBlock+firstBlock,buff);
 	if (buff[0] != 3)
 		return buff[0];//ERR_REACHEDEOF;
 	*buffer = buff[tempFP+4];
-        temp->fileptr++;
-        
-        if(DEBUG)
-            printf("Read Byte %c. Pointer now at index %d\n",*buffer,temp->fileptr);
+	temp->fileptr++;
+
+	if(DEBUG)
+		printf("Read Byte %c. Pointer now at index %d\n",*buffer,temp->fileptr);
 	close(fd);
 	return 1;
 }
 
 int tfs_seek(fileDescriptor FD, int offset)
 {
-	if(!disk_mount)
+	int i, fd, found = 0;
+	char buff[BLOCKSIZE];
+	char *fileName;
+
+	if(disk_mount)
+		fd = openDisk(disk_mount, 0);
+	else
 		return ERR_FILENOTMOUNTED;
-	
+
 	drt_t *temp = dynamicResourceTable;
 
 	while(temp){
@@ -457,11 +494,28 @@ int tfs_seek(fileDescriptor FD, int offset)
 		return ERR_BADFILE;
 
 	temp->fileptr = offset;
+	fileName = temp->fileName;
 
-        if(DEBUG)
-            printf("Seeked pointer to index %d\n",temp->fileptr);
+	/* looking for inode block */
+	for(i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE && !found; i++){
+		if(readBlock(fd, i, buff) < 0)
+			return ERR_NOMORESPACE;
+		if(buff[0] == 2){
+			if(!strcmp(fileName, buff+4)){
+				found = 1;
+				time_t now = time(0);
+				memcpy(buff+19, &now, sizeof(time_t)); // set access time
+				writeBlock(fd, i, buff);
+				break;
+			}
+		}
+	}
+
+	if(DEBUG)
+		printf("Seeked pointer to index %d\n",temp->fileptr);
 	return 1;
 }
+
 
 int tfs_rename(fileDescriptor FD, char *name){
 	int i, fd,inodeLoc;
@@ -469,12 +523,12 @@ int tfs_rename(fileDescriptor FD, char *name){
 	char buff[BLOCKSIZE];
 	char *fileName;
 	drt_t *temp = dynamicResourceTable;
-	
+
 	if(disk_mount)
 		fd = openDisk(disk_mount, 0);
 	else
 		return ERR_FILENOTMOUNTED;
-	
+
 	while(temp){
 		if(temp->id == FD){
 			break;
@@ -503,20 +557,23 @@ int tfs_rename(fileDescriptor FD, char *name){
 	if(!found)
 		return ERR_NOINODEFOUND;
 
-        /* looking for inode block */
+	/* looking for inode block */
 	if(DEBUG)
-	    printf("Inode block name changes from %s to ",buff+4);
+		printf("Inode block name changes from %s to ",buff+4);
 	strcpy(buff+4,name);
+	time_t now = time(0);
+	memcpy(buff+19, &now, sizeof(time_t)); // set access time
+	memcpy(buff+23, &now, sizeof(time_t)); // set modification time
 	writeBlock(fd,inodeLoc,buff);
 	if(DEBUG)
-            printf("%s\n",buff+4);
+		printf("%s\n",buff+4);
 
 	/* change name in drt */
 	if(DEBUG)
-            printf("Drt name changed from %s to ",temp->fileName);
+		printf("Drt name changed from %s to ",temp->fileName);
 	temp->fileName = name;
 	if(DEBUG)
-            printf("%s\n",temp->fileName);
+		printf("%s\n",temp->fileName);
 
 	close(fd);
 	return 1;
@@ -538,7 +595,7 @@ int tfs_readdir(){
 }
 
 int tfs_makeRO(char *name) {
-	
+
 	int found = 0;
 	int i = 0;
 	int fd;
@@ -549,7 +606,7 @@ int tfs_makeRO(char *name) {
 	else
 		return ERR_FILENOTMOUNTED;
 
-	// Loop over inode blocks
+	/* Loop over inode blocks */
 	for(i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE && !found; i++){
 		if(readBlock(fd, i, buff) < 0)
 			return ERR_NOMORESPACE;
@@ -557,6 +614,9 @@ int tfs_makeRO(char *name) {
 			if(!strcmp(name, buff+4)){
 				found = 1;
 				buff[3] = 0; // Set RO byte
+				time_t now = time(0);
+				memcpy(buff+19, &now, sizeof(time_t)); // set access time
+				memcpy(buff+23, &now, sizeof(time_t)); // set modification time
 				writeBlock(fd, i, buff);
 				break;
 			}
@@ -566,8 +626,8 @@ int tfs_makeRO(char *name) {
 	if(!found)
 		return ERR_NOINODEFOUND;
 	else {
-	    if(DEBUG)	
-                printf("%s access changes to Read-Only(%d)\n",name, buff[3]);
+		if(DEBUG)
+			printf("%s access changes to Read-Only(%d)\n",name, buff[3]);
 		return 1;
 	}
 
@@ -585,7 +645,7 @@ int tfs_makeRW(char *name) {
 	else
 		return ERR_FILENOTMOUNTED;
 
-	// Loop over inode blocks
+	/* Loop over inode blocks */
 	for(i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE && !found; i++){
 		if(readBlock(fd, i, buff) < 0)
 			return ERR_NOMORESPACE;
@@ -593,6 +653,9 @@ int tfs_makeRW(char *name) {
 			if(!strcmp(name, buff+4)){
 				found = 1;
 				buff[3] = 1; // Set RW byte
+				time_t now = time(0);
+				memcpy(buff+19, &now, sizeof(time_t)); // set access time
+				memcpy(buff+23, &now, sizeof(time_t)); // set modification time
 				writeBlock(fd, i, buff);
 				break;
 			}
@@ -602,8 +665,8 @@ int tfs_makeRW(char *name) {
 	if(!found)
 		return ERR_NOINODEFOUND;
 	else {
-	    if(DEBUG)	
-                printf("%s access changes to Read-Write(%d)\n",name, buff[3]);
+		if(DEBUG)
+			printf("%s access changes to Read-Write(%d)\n",name, buff[3]);
 		return 1;
 	}
 }
@@ -614,7 +677,7 @@ int tfs_writeByte(fileDescriptor FD, unsigned char data) {
 	char buff[BLOCKSIZE];
 	char *fileName;
 	drt_t *temp = dynamicResourceTable;
-	
+
 	if(disk_mount)
 		fd = openDisk(disk_mount, 0);
 	else
@@ -646,7 +709,7 @@ int tfs_writeByte(fileDescriptor FD, unsigned char data) {
 			if(!strcmp(fileName, buff+4)){
 				found = 1;
 				firstBlock = buff[2];
-				size = (buff[13] << 8) || buff[14]; 
+				size = (buff[13] << 8) || buff[14];
 				numBlocks = (int)ceil((double)size / (double)BLOCKSIZE);
 				break;
 			}
@@ -657,12 +720,15 @@ int tfs_writeByte(fileDescriptor FD, unsigned char data) {
 
 	currBlock = (int)floor(((double)temp->fileptr+1) / (double)BLOCKSIZE);
 	tempFP = temp->fileptr - (BLOCKSIZE * currBlock);
-	readBlock(fd,currBlock+firstBlock,buff); 
+	readBlock(fd,currBlock+firstBlock,buff);
 	buff[tempFP+4] = data;
+	time_t now = time(0);
+	memcpy(buff+19, &now, sizeof(time_t)); // set access time
+	memcpy(buff+23, &now, sizeof(time_t)); // set modification time
 	writeBlock(fd,currBlock+firstBlock,buff);
 	if(DEBUG)
-            printf("Wrote %c to byte at block %d\n",buff[tempFP+4],currBlock+firstBlock);
-        close(fd);
+		printf("Wrote %c to byte at block %d\n",buff[tempFP+4],currBlock+firstBlock);
+	close(fd);
 	return 1;
 }
 
@@ -691,6 +757,59 @@ int tfs_defrag() {
 
 	return 1;
 }
+
+time_t tfs_readFileInfo(fileDescriptor FD) {
+
+	int i, fd;
+	int found = 0;
+	char buff[BLOCKSIZE];
+	char *fileName;
+	time_t fileCreationTime = 0;
+	drt_t *temp = dynamicResourceTable;
+
+	if(disk_mount)
+		fd = openDisk(disk_mount, 0);
+	else
+		return ERR_FILENOTMOUNTED;
+
+	while(temp){
+		if(temp->id == FD){
+			break;
+		}
+		temp = temp->next;
+	}
+
+	if (!temp)
+		return ERR_BADFILE;
+
+	if(!temp->access)
+		return ERR_READONLY;
+
+	fileName = temp->fileName;
+
+	/* looking for inode block */
+	for(i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE && !found; i++){
+
+		if(readBlock(fd, i, buff) < 0)
+			return ERR_NOMORESPACE;
+
+		if(buff[0] == 2){
+			if(!strcmp(fileName, buff+4)){
+				found = 1;
+				break;
+			}
+		}
+	}
+
+	if(!found)
+		return ERR_NOINODEFOUND;
+	else
+		memcpy(&fileCreationTime, buff+15, sizeof(time_t));
+
+	return fileCreationTime;
+
+}
+
 
 int tfs_displayFragments() {
 

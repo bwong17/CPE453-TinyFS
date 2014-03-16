@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "libTinyFS.h"
+#include <time.h>
 
 int main(void) {
 
@@ -7,14 +8,20 @@ int main(void) {
 	char buffer[BLOCKSIZE] = {"Andrew and Barbara"};
 	char read;
 	int test;
+	time_t file1_creation;
 
-	printf("TFS Make FS %d\n",tfs_mkfs("tinyFSDisk",DEFAULT_DISK_SIZE));
+	//printf("TFS Make FS %d\n",tfs_mkfs("tinyFSDisk",DEFAULT_DISK_SIZE));
 
 	printf("TFS Mount %d\n", tfs_mount("tinyFSDisk"));
 	printf("TFS Open File 1: %d\n",file1 = tfs_openFile("test1"));
-	printf("TFS Open File 1.5: %d\n",file1 = tfs_openFile("test1"));
-	printf("TFS Open File 2: %d\n", file2 = tfs_openFile("test2"));
 	
+	file1_creation = tfs_readFileInfo(file1);
+	printf("The time is %d %s\n", file1_creation, ctime(&file1_creation));
+
+	printf("TFS Open File 1.5: %d\n",file1 = tfs_openFile("test1"));
+	
+	printf("TFS Open File 2: %d\n", file2 = tfs_openFile("test2"));
+		
 	tfs_displayFragments();
 	printf("TFS Write File 1: %d\n",tfs_writeFile(file1, buffer, 300));
 	tfs_displayFragments();

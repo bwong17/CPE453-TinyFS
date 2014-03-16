@@ -53,3 +53,6 @@ int tfs_displayFragments();
 
 /* Groups all of the free blocks together at the end of the disk */
 int tfs_defrag();
+
+/* returns the file’s creation time */
+time_t tfs_readFileInfo(fileDescriptor FD);
