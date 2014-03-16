@@ -46,7 +46,7 @@ int tfs_makeRO(char *name);
 int tfs_makeRW(char *name);
 
 /* writes one byte of data at the current value of the file pointer */
-int tfs_writeByte(fileDescriptor FD, unsigned int data);
+int tfs_writeByte(fileDescriptor FD, unsigned char data);
 
 /* Returns an array of integers. Each integer has a value of 1-4 which represents the type of block */
 int tfs_displayFragments();

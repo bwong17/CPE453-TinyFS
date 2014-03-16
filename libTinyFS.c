@@ -252,7 +252,7 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
 		if (readBlock(fd, i, buff) < 0)
 			return ERR_NOMORESPACE;
 		if (buff[0] == 4){
-			for(j = i; j < i+numBlocks; j++){
+			for(j = i; j < i+numBlocks-1; j++){
 				if (readBlock(fd, j, buff) < 0)
 					return ERR_NOMORESPACE;  
 				if (buff[0] != 4)
@@ -267,6 +267,7 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
 
 	startIndex = i;
 	endIndex = j;
+	found = 0;
 
 	/* setting template to make (write) file extents*/
 	buff[0] = 3;
@@ -601,7 +602,7 @@ int tfs_makeRW(char *name) {
 	}
 }
 
-int tfs_writeByte(fileDescriptor FD, unsigned int data) {
+int tfs_writeByte(fileDescriptor FD, unsigned char data) {
 	int i, fd, size, firstBlock, numBlocks, currBlock, tempFP;
 	int found = 0;
 	char buff[BLOCKSIZE];
