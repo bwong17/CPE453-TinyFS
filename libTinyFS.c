@@ -9,7 +9,7 @@
 #include "libTinyFS.h"
 #include "TinyFS_errno.h"
 
-#define DEBUG 0
+#define DEBUG 1
 
 static char *disk_mount = NULL;
 static drt_t *dynamicResourceTable = NULL;
@@ -221,7 +221,7 @@ int tfs_closeFile(fileDescriptor FD)
 
 int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
 {
-	int i,startIndex, endIndex, j, fd, numBlocks, found = 1;
+	int i,startIndex, endIndex, j, fd, numBlocks, found = 1, inode;
 	char buff[BLOCKSIZE];
 	char *fileName;
 	drt_t *temp = dynamicResourceTable;
@@ -246,6 +246,21 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
 		return ERR_READONLY;
 	fileName = temp->fileName;
 
+	found = 0;
+	/* find inode */
+	for(i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE && !found; i++){
+		if(readBlock(fd, i, buff) < 0)
+			return ERR_NOMORESPACE;
+		if(buff[0] == 2){
+			if(!strcmp(fileName, buff+4)){
+				found = 1;
+				inode = i;
+			}
+		}
+	}
+	if(!found)
+		return ERR_NOINODEFOUND;
+	found = 1;
 
 	/* find first free "numBlocks" block occurences to write to */
 	for (i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE; i++) {
@@ -272,6 +287,7 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
 	/* setting template to make (write) file extents*/
 	buff[0] = 3;
 	buff[1] = 0x45;
+	buff[3] = (char)inode;
 
 	for(i = startIndex; i <= endIndex; i++){
 		if(i != endIndex)
@@ -287,21 +303,11 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
             printf("Write to free blocks starting at index %d and ending at %d. Wrote to the file extent -> %s\n",startIndex, endIndex,buff+4);
 
 	/* inode update (1st block occurrence and size) */
-	for(i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE && !found; i++){
-		if(readBlock(fd, i, buff) < 0)
-			return ERR_NOMORESPACE;
-		if(buff[0] == 2){
-			if(!strcmp(fileName, buff+4)){
-				buff[2] = startIndex;
-				buff[13] = (numBlocks & 0xFF00)>>8;
-				buff[14] = numBlocks & 0x00FF;
-				writeBlock(fd, i, buff);
-				found = 1;
-			}
-		}
-	}
-	if(!found)
-		return ERR_NOINODEFOUND;
+	readBlock(fd, inode, buff);
+	buff[2] = startIndex;
+	buff[13] = (numBlocks & 0xFF00)>>8;
+	buff[14] = numBlocks & 0x00FF;
+	writeBlock(fd, inode, buff);
 	
         if(DEBUG)
             printf("Updated inode block to point to index %d and have size %d %d\n",buff[2],buff[13],buff[14]);
@@ -657,6 +663,32 @@ int tfs_writeByte(fileDescriptor FD, unsigned char data) {
 	if(DEBUG)
             printf("Wrote %c to byte at block %d\n",buff[tempFP+4],currBlock+firstBlock);
         close(fd);
+	return 1;
+}
+
+int tfs_defrag() {
+	int i, fd, firstFree = 0;
+	char buff[BLOCKSIZE];
+
+	if(disk_mount)
+		fd = openDisk(disk_mount, 0);
+	else
+		return ERR_FILENOTMOUNTED;
+
+	for(i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE; i++){
+		readBlock(fd, i, buff);
+		if(buff[0] == 4 && firstFree == 0)
+			firstFree = i;
+		else if(buff[0] == 4) {
+			continue;
+		}
+		else {
+			writeBlock(fd, firstFree, buff);
+			buff[0] = 4;
+			writeBlock(fd, i, buff);
+		}
+	}
+
 	return 1;
 }
 

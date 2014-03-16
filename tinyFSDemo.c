@@ -21,6 +21,8 @@ int main(void) {
 	printf("TFS Write File 2: %d\n",tfs_writeFile(file2, buffer, sizeof(buffer)));
 	tfs_displayFragments();
 
+	printf("TFS Write File 2: %d\n",tfs_writeByte(file2, 89));
+
 	printf("TFS Read Files and Directories: %d\n",tfs_readdir());
 
 	printf("TFS Read Files and Directories: %d\n",tfs_readdir());
