@@ -159,6 +159,7 @@ fileDescriptor tfs_openFile(char *name) {
 	if (dynamicResourceTable == NULL) {
 		temp = calloc(1, sizeof(drt_t));
 		temp->fileName = name;
+                temp->access = 1;
 		dynamicResourceTable = temp;
 	} else {
 		temp = addDrtNode(name, dynamicResourceTable);
@@ -189,6 +190,8 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
         }
         temp = temp->next;
     }
+    if(!temp->access)
+        return ERR_READONLY;
     fileName = temp->fileName;
     
     if(disk_mount)
@@ -266,6 +269,8 @@ int tfs_deleteFile(fileDescriptor FD)
         }
         temp = temp->next;
     }
+    if(!temp->access)
+        return ERR_READONLY;
     fileName = temp->fileName;
     if(disk_mount)
         fd = openDisk(disk_mount, 0);
@@ -434,4 +439,80 @@ int tfs_readdir(){
     printf("*********************************\n");
 
     return 0;
+}
+
+int tfs_makeRO(char *name) {
+
+    drt_t *temp = dynamicResourceTable;
+
+    while(temp){
+        if(!strcmp(temp->fileName, name)) {
+            printf("%s\n",temp->fileName);
+            temp->access = 0;
+            break;
+	}
+        temp = temp->next;
+    }
+
+    return 1;
+}
+
+int tfs_makeRW(char *name) {
+
+    drt_t *temp = dynamicResourceTable;
+
+    while(temp){
+        if(!strcmp(temp->fileName, name)) {
+            printf("%s\n",temp->fileName);
+            temp->access = 1;
+            break;
+	}
+        temp = temp->next;
+    }
+
+    return 1;
+}
+
+int tfs_writeByte(fileDescriptor FD, unsigned int data) {
+    int i, fd, size, firstBlock, numBlocks, currBlock, tempFP;
+    int found = 0;
+    char buff[BLOCKSIZE];
+    char *fileName;
+    drt_t *temp = dynamicResourceTable;
+
+    while(temp){
+        if(temp->id == FD){
+            break;
+        }
+        temp = temp->next;
+    }
+    fileName = temp->fileName;
+    if(disk_mount)
+        fd = openDisk(disk_mount, 0);
+    else
+	return ERR_FILENOTMOUNTED;
+
+    /* looking for inode block */
+    for(i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE || !found; i++){
+        if(readBlock(fd, i, buff) < 0)
+            return ERR_NOMORESPACE;
+        if(buff[0] == 2){
+            if(!strcmp(fileName, buff+4)){
+                found = 1;
+                firstBlock = buff[2];
+                size = (buff[13] << 8) || buff[14]; 
+                numBlocks = (int)ceil((double)size / (double)BLOCKSIZE);
+                break;
+            }
+        }
+    }
+    if(!found)
+        return ERR_NOINODEFOUND;
+    
+    currBlock = (int)floor(((double)temp->fileptr+1) / (double)BLOCKSIZE);
+    tempFP = temp->fileptr - (BLOCKSIZE * currBlock);
+    readBlock(fd,currBlock+firstBlock,buff); 
+    buff[tempFP+4] = data;
+    close(fd);
+    return 1;
 }

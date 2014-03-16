@@ -13,6 +13,7 @@ typedef struct drt_t {
     char *fileName;
     struct drt_t *next;
     int fileptr; /* will be needed for readByte and seek */
+    int access; /* 1 = read-write, 0 = read-only */
 } drt_t;
 
 /* Makes a blank TinyFS file system of size nBytes on the file specified by ‘filename’. This function should use the emulated disk library to open the specified file, and upon success, format the file to be mountable. This includes initializing all data to 0x00, setting magic numbers, initializing and writing the superblock and inodes, etc. Must return a specified success/error code. */
@@ -45,3 +46,12 @@ int tfs_rename(fileDescriptor FD, char *name);
 
 /*  lists all the files and directories on the disk */
 int tfs_readdir();
+
+/*  makes the file read-only */
+int tfs_makeRO(char *name);
+
+/* makes the file read-write */
+int tfs_makeRW(char *name);
+
+/* writes one byte of data at the current value of the file pointer */
+int tfs_writeByte(fileDescriptor FD, unsigned int data);
