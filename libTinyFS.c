@@ -352,7 +352,6 @@ int tfs_readByte(fileDescriptor FD, char *buffer)
     tempFP = temp->fileptr - (BLOCKSIZE * currBlock);
     readBlock(fd,currBlock+firstBlock,buff); 
     *buffer = buff[tempFP+4];
-    printf("%c\n", *buffer);
     temp->fileptr++;
     close(fd);
     return 1;
@@ -371,4 +370,68 @@ int tfs_seek(fileDescriptor FD, int offset)
     temp->fileptr = offset;
 
     return 1;
+}
+
+int tfs_rename(fileDescriptor FD, char *name){
+
+    int i, fd;
+    int found = 0;
+    char buff[BLOCKSIZE];
+    char *fileName;
+    drt_t *temp = dynamicResourceTable;
+
+    while(temp){
+        if(temp->id == FD){
+            break;
+        }
+        temp = temp->next;
+    }
+    fileName = temp->fileName;
+    
+    /* change name in inode block */
+    if(disk_mount)
+        fd = openDisk(disk_mount, 0);
+    else
+	return ERR_FILENOTMOUNTED;
+
+    for(i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE || !found; i++){
+        if(readBlock(fd, i, buff) < 0)
+            return ERR_NOMORESPACE;
+        if(buff[0] == 2){
+            if(!strcmp(fileName, buff+4)){
+                found = 1;
+                break;
+            }
+        }
+    }
+    if(!found)
+        return ERR_NOINODEFOUND;
+   
+    //printf("inode block name changes from %s to ",buff+4);
+    strcpy(buff+4,name);
+
+    //printf("%s\n",buff+4);
+
+    /* change name in drt */
+    //printf("drt name changed from %s to ",temp->fileName);
+    temp->fileName = name;
+    //printf("%s\n",temp->fileName);
+    
+    close(fd);
+    return 1;
+}
+
+int tfs_readdir(){
+
+    drt_t *temp = dynamicResourceTable;
+
+    printf("***** Files and Directories *****\n");
+
+    while(temp){
+        printf("%s\n",temp->fileName);
+        temp = temp->next;
+    }
+    printf("*********************************\n");
+
+    return 0;
 }

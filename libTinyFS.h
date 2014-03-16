@@ -39,3 +39,9 @@ int tfs_readByte(fileDescriptor FD, char *buffer);
 
 /* change the file pointer location to offset (absolute). Returns success/error codes.*/
 int tfs_seek(fileDescriptor FD, int offset);
+
+/* renames a file. New name should be passed in */
+int tfs_rename(fileDescriptor FD, char *name);
+
+/*  lists all the files and directories on the disk */
+int tfs_readdir();
