@@ -46,5 +46,7 @@ int main(void) {
 
 	printf("TFS Read Files and Directories: %d\n",tfs_readdir());
 
+	tfs_displayFragments();
+
 	return 0;
 } 

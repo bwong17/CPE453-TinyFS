@@ -47,3 +47,9 @@ int tfs_makeRW(char *name);
 
 /* writes one byte of data at the current value of the file pointer */
 int tfs_writeByte(fileDescriptor FD, unsigned int data);
+
+/* Returns an array of integers. Each integer has a value of 1-4 which represents the type of block */
+int tfs_displayFragments();
+
+/* Groups all of the free blocks together at the end of the disk */
+int tfs_defrag();

@@ -658,3 +658,43 @@ int tfs_writeByte(fileDescriptor FD, unsigned int data) {
         close(fd);
 	return 1;
 }
+
+int tfs_displayFragments() {
+
+	int i, fd, count = 0;
+	char buff[BLOCKSIZE];
+
+	if(disk_mount)
+		fd = openDisk(disk_mount, 0);
+	else
+		return ERR_FILENOTMOUNTED;
+	for(i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE; i++){
+
+		if(readBlock(fd, i, buff) < 0)
+			return ERR_NOMORESPACE;
+
+		if(buff[0] == 1){
+			printf("|S|");
+			count++;
+		}
+		else if(buff[0] == 2){
+			printf("|I|");
+			count++;
+		}
+		else if(buff[0] == 3){
+			printf("|D|");
+			count++;
+		}
+		else if(buff[0] == 4){
+			printf("| |");
+			count++;
+		}
+		if(count == 4) {
+			printf("\n");
+			count = 0;
+		}
+		else
+			printf(" -> ");
+	}
+	return 1;
+}
