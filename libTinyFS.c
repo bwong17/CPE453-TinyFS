@@ -379,7 +379,7 @@ int tfs_seek(fileDescriptor FD, int offset)
 
 int tfs_rename(fileDescriptor FD, char *name){
 
-    int i, fd;
+    int i, fd,inodeLoc;
     int found = 0;
     char buff[BLOCKSIZE];
     char *fileName;
@@ -409,12 +409,14 @@ int tfs_rename(fileDescriptor FD, char *name){
             }
         }
     }
+    inodeLoc = i;
     if(!found)
         return ERR_NOINODEFOUND;
-   
+  
+    /* looking for inode block */
     //printf("inode block name changes from %s to ",buff+4);
     strcpy(buff+4,name);
-
+    writeBlock(fd,inodeLoc,buff);
     //printf("%s\n",buff+4);
 
     /* change name in drt */
@@ -438,7 +440,7 @@ int tfs_readdir(){
     }
     printf("*********************************\n");
 
-    return 0;
+    return 1;
 }
 
 int tfs_makeRO(char *name) {
@@ -453,6 +455,7 @@ int tfs_makeRO(char *name) {
 	}
         temp = temp->next;
     }
+    printf("%s access changes to Read-Only(%d)\n",temp->fileName, temp->access);
 
     return 1;
 }
@@ -463,13 +466,13 @@ int tfs_makeRW(char *name) {
 
     while(temp){
         if(!strcmp(temp->fileName, name)) {
-            printf("%s\n",temp->fileName);
             temp->access = 1;
             break;
 	}
         temp = temp->next;
     }
 
+    printf("%s access changes to Read-Write(%d)\n",temp->fileName, temp->access);
     return 1;
 }
 
@@ -486,7 +489,12 @@ int tfs_writeByte(fileDescriptor FD, unsigned int data) {
         }
         temp = temp->next;
     }
+    
+    if(!temp->access)
+        return ERR_READONLY;
+   
     fileName = temp->fileName;
+    
     if(disk_mount)
         fd = openDisk(disk_mount, 0);
     else
@@ -494,8 +502,10 @@ int tfs_writeByte(fileDescriptor FD, unsigned int data) {
 
     /* looking for inode block */
     for(i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE || !found; i++){
+        
         if(readBlock(fd, i, buff) < 0)
             return ERR_NOMORESPACE;
+        
         if(buff[0] == 2){
             if(!strcmp(fileName, buff+4)){
                 found = 1;
@@ -513,6 +523,7 @@ int tfs_writeByte(fileDescriptor FD, unsigned int data) {
     tempFP = temp->fileptr - (BLOCKSIZE * currBlock);
     readBlock(fd,currBlock+firstBlock,buff); 
     buff[tempFP+4] = data;
+    writeBlock(fd,currBlock+firstBlock,buff);
     close(fd);
     return 1;
 }

@@ -3,7 +3,7 @@
 
 int main(void) {
     
-    int file1, file2;
+    int file1, file2, file3;
     char buffer[BLOCKSIZE] = {"Andrew and Barbara"};
     char read;
     
@@ -27,7 +27,15 @@ int main(void) {
 
     printf("TFS Seek File 2: %d\n",tfs_seek(file2,11));
     printf("TFS Read Byte File 2: %d\n",tfs_readByte(file2,&read));
-    printf("TFS Rename File 2: %d\n",tfs_rename(file2, "file1"));
-   printf("TFS Read Files and Directories: %d\n",tfs_readdir());
+    printf("TFS Rename File 2: %d\n",tfs_rename(file2, "test3"));
+  
+    file3 = file2;
+    printf("TFS Make file1 Read-Only: %d\n",tfs_makeRO("test3"));
+    printf("TFS Write Byte to file 1: %d\n",tfs_writeByte(file2,89));
+   
+    printf("TFS Read Files and Directories: %d\n",tfs_readdir());
+
+    printf("TFS Make file1 Read-Write: %d\n",tfs_makeRW("test3"));
+    printf("TFS Write Byte to file 1: %d\n",tfs_writeByte(file3,89));
     return 0;
 } 
