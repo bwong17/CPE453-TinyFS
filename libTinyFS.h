@@ -1,4 +1,5 @@
 #include "tinyFS.h"
+#include <time.h>
 
 typedef struct drt_t {
     fileDescriptor id;

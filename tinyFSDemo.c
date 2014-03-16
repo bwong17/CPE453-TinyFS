@@ -16,7 +16,7 @@ int main(void) {
 	printf("TFS Open File 1: %d\n",file1 = tfs_openFile("test1"));
 	
 	file1_creation = tfs_readFileInfo(file1);
-	printf("The time is %d %s\n", file1_creation, ctime(&file1_creation));
+	printf("The time is %ld %s\n", file1_creation, ctime(&file1_creation));
 
 	printf("TFS Open File 1.5: %d\n",file1 = tfs_openFile("test1"));
 	
@@ -59,6 +59,8 @@ int main(void) {
 
 	printf("TFS Read Files and Directories: %d\n",tfs_readdir());
 */
+	tfs_displayFragments();
+	tfs_defrag();
 	tfs_displayFragments();
 
 	return 0;

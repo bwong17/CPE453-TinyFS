@@ -752,6 +752,7 @@ int tfs_defrag() {
 			writeBlock(fd, firstFree, buff);
 			buff[0] = 4;
 			writeBlock(fd, i, buff);
+			firstFree++;
 		}
 	}
 
@@ -841,12 +842,13 @@ int tfs_displayFragments() {
 			printf("| |");
 			count++;
 		}
-		if(count == 4) {
+		if(count == 4 || i == DEFAULT_DISK_SIZE / BLOCKSIZE - 1) {
 			printf("\n");
 			count = 0;
 		}
 		else
 			printf(" -> ");
 	}
+	printf("\n");
 	return 1;
 }
