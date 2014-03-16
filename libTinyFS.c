@@ -13,58 +13,58 @@ static char *disk_mount = NULL;
 static drt_t *dynamicResourceTable = NULL;
 
 int getDrtLength(drt_t *head) {
-	int i = 0;
+    
+    int i = 0;
 
-	while(head->next) {
-		head = head->next;
-		i++;
-	}
-
-	return i;
+    while(head->next) {
+        head = head->next;
+        i++;
+    }
+    return i;
 }
 
-
 int removeDrtNode(fileDescriptor fd) {
-	drt_t *temp = dynamicResourceTable;
-	drt_t *prev = temp;
-	
-	// if drt is NULL then there are no files open
-	if (!dynamicResourceTable) 
-		return ERR_FILENOTOPEN;
+    drt_t *temp = dynamicResourceTable;
+    drt_t *prev = temp;
 
-	// search for id == fd
-	while (temp->next && (temp->id != fd)) {
-		prev = temp;
-		temp = temp->next;
-	}
+    // if drt is NULL then there are no files open
+    if (!dynamicResourceTable) 
+        return ERR_FILENOTOPEN;
 
-	// if we are at the end of the node and it doesnt match
-	// then file isnt open
-	if (!temp->next && temp->id != fd)
-		return ERR_FILENOTOPEN;
+    // search for id == fd
+    while (temp->next && (temp->id != fd)) {
+        prev = temp;
+        temp = temp->next;
+    }
 
-	// if we are at the root node then we need to change the root node
-	if (temp == dynamicResourceTable)
-		// if there is more than just the root node
-		if (dynamicResourceTable->next)
-			dynamicResourceTable = dynamicResourceTable->next;
-		else
-			dynamicResourceTable = NULL;
+    // if we are at the end of the node and it doesnt match
+    // then file isnt open
+    if (!temp->next && temp->id != fd)
+        return ERR_FILENOTOPEN;
+
+    // if we are at the root node then we need to change the root node
+    if (temp == dynamicResourceTable)
+        // if there is more than just the root node
+        if (dynamicResourceTable->next)
+            dynamicResourceTable = dynamicResourceTable->next;
         else
-		// if we are not at the end of the list
-		if (temp->next)
-			prev->next = temp->next;
-		else
-			prev->next = NULL;
-        
-	// temp is always pointing at the node that we want to remove from the list
-	free(temp);
+            dynamicResourceTable = NULL;
+    else
+        // if we are not at the end of the list
+        if (temp->next)
+            prev->next = temp->next;
+        else
+            prev->next = NULL;
 
-	return 1;
+    // temp is always pointing at the node that we want to remove from the list
+    free(temp);
+
+    return 1;
 }
 
 drt_t *addDrtNode(char* fileName, drt_t *head) {
-	drt_t *node = calloc(1, sizeof(drt_t));
+	
+        drt_t *node = calloc(1, sizeof(drt_t));
 	node->fileName = fileName;
 
 	while (head->next)
@@ -72,7 +72,7 @@ drt_t *addDrtNode(char* fileName, drt_t *head) {
 	
 	node->id = head->id + 1;
 	head->next = node;
-	return node;
+        return node;
 }
 
 int tfs_mkfs(char *filename, int nBytes){
@@ -96,12 +96,6 @@ int tfs_mkfs(char *filename, int nBytes){
 	templateBlk[2] = 1;
 	writeBlock(diskNum, 0, templateBlk);
 
-	// Set up root inode block
-	// Unneccessary for this assignment
-	/*templateBlk[0] = 2;
-	  templateBlk[2] = 2;
-	  writeBlock(diskNum, 1, templateBlk);
-	 */
 	free(templateBlk);
         close(diskNum);
 	return 1;
@@ -189,17 +183,15 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
 
     numBlocks = ceil((double)size / (double)BLOCKSIZE);
 
-    temp += FD;
+    for(i = 0; i < FD; i++)
+        temp = temp->next;
     fileName = temp->fileName;
     
     if(disk_mount)
         fd = openDisk(disk_mount, 0);
     else
 	return ERR_FILENOTMOUNTED;
-    printf("FILE: %d\n", fd);
     
-    /* NOTE: super block not set correctly */
-
     /* find first free "numBlocks" block occurences to write to */
     for (i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE; i++) {
         if (readBlock(fd, i, buff) < 0)
@@ -251,8 +243,6 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
     }
     if(!found)
         return ERR_NOINODEFOUND;
-    printf("FILE2: %d\n", fd);
-
     close(fd);
 
     return 1;
@@ -266,15 +256,15 @@ int tfs_deleteFile(fileDescriptor FD)
     char *fileName;
     drt_t *temp = dynamicResourceTable;
 
-    temp += FD;
+    for(i = 0; i < FD; i++)
+        temp = temp->next;
     fileName = temp->fileName;
-    
     if(disk_mount)
         fd = openDisk(disk_mount, 0);
     else
 	return ERR_FILENOTMOUNTED;
-    printf("fd: %d\n", fd);
 
+    /* looking for inode block */
     for(i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE || !found; i++){
         if(readBlock(fd, i, buff) < 0)
             return ERR_NOMORESPACE;
@@ -290,13 +280,27 @@ int tfs_deleteFile(fileDescriptor FD)
     }
     if(!found)
         return ERR_NOINODEFOUND;
+    
     buff[0] = 4;
+    
+    /*deleting inode */
+    writeBlock(fd, i,buff);
 
-    for(i = firstBlock; i < firstBlock + numBlocks; i++) {
-        
+    /*deleting file extents*/
+    for(i = firstBlock; i <= firstBlock + numBlocks; i++) {
+        writeBlock(fd, i, buff);    
     }
 
-    return 0;
+    removeDrtNode(FD);
+    close(fd);
+
+    /* checking for Blocks in FS 
+    for(i = 0; i < 10; i++){
+        readBlock(fd, i, buff);
+        printf("block %d : %d\n",i,buff[0]);
+    }
+    */
+    return 1;
 }
 
 int tfs_readByte(fileDescriptor FD, char *buffer)
