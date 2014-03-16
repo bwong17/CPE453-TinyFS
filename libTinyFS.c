@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #include "libDisk.h"
 #include "libTinyFS.h"
@@ -102,6 +103,7 @@ int tfs_mkfs(char *filename, int nBytes){
 	  writeBlock(diskNum, 1, templateBlk);
 	 */
 	free(templateBlk);
+        close(diskNum);
 	return 1;
 }
 
@@ -119,6 +121,7 @@ int tfs_mount(char *filename) {
 		return ERR_BADFS;
 
 	disk_mount = filename;
+        close(diskNum);
 	return 1;
 }
 
@@ -137,7 +140,7 @@ fileDescriptor tfs_openFile(char *name) {
 
 	// check if we have a mounted disk
 	if(disk_mount)
-		fd = openDisk(disk_mount, BLOCKSIZE);
+		fd = openDisk(disk_mount, 0);
 	else
 		return ERR_FILENOTMOUNTED;
 
@@ -166,6 +169,7 @@ fileDescriptor tfs_openFile(char *name) {
 	} else {
 		temp = addDrtNode(name, dynamicResourceTable);
 	}
+        close(fd);
 
 	return temp->id;
 }
@@ -189,9 +193,10 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
     fileName = temp->fileName;
     
     if(disk_mount)
-        fd = openDisk(disk_mount, BLOCKSIZE);
+        fd = openDisk(disk_mount, 0);
     else
 	return ERR_FILENOTMOUNTED;
+    printf("FILE: %d\n", fd);
     
     /* NOTE: super block not set correctly */
 
@@ -246,13 +251,52 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
     }
     if(!found)
         return ERR_NOINODEFOUND;
+    printf("FILE2: %d\n", fd);
+
+    close(fd);
 
     return 1;
 }
 
 int tfs_deleteFile(fileDescriptor FD)
 {
-	return 0;
+    int i, fd, size, firstBlock, numBlocks;
+    int found = 0;
+    char buff[BLOCKSIZE];
+    char *fileName;
+    drt_t *temp = dynamicResourceTable;
+
+    temp += FD;
+    fileName = temp->fileName;
+    
+    if(disk_mount)
+        fd = openDisk(disk_mount, 0);
+    else
+	return ERR_FILENOTMOUNTED;
+    printf("fd: %d\n", fd);
+
+    for(i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE || !found; i++){
+        if(readBlock(fd, i, buff) < 0)
+            return ERR_NOMORESPACE;
+        if(buff[0] == 2){
+            if(!strcmp(fileName, buff+4)){
+                found = 1;
+                firstBlock = buff[2];
+                size = (buff[13] << 8) || buff[14]; 
+                numBlocks = (int)ceil((double)size / (double)BLOCKSIZE);
+                break;
+            }
+        }
+    }
+    if(!found)
+        return ERR_NOINODEFOUND;
+    buff[0] = 4;
+
+    for(i = firstBlock; i < firstBlock + numBlocks; i++) {
+        
+    }
+
+    return 0;
 }
 
 int tfs_readByte(fileDescriptor FD, char *buffer)
