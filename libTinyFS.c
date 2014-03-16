@@ -9,6 +9,8 @@
 #include "libTinyFS.h"
 #include "TinyFS_errno.h"
 
+#define DEBUG 0
+
 static char *disk_mount = NULL;
 static drt_t *dynamicResourceTable = NULL;
 
@@ -56,6 +58,8 @@ int removeDrtNode(fileDescriptor fd) {
 		else
 			prev->next = NULL;
 
+        if(DEBUG)
+            printf("Removed a node from dynamic resource table\n");
 	// temp is always pointing at the node that we want to remove from the list
 	free(temp);
 
@@ -73,6 +77,9 @@ drt_t *addDrtNode(char* fileName, drt_t *head, char isRW) {
 	node->id = head->id + 1;
 	node->access = isRW;
 	head->next = node;
+
+        if(DEBUG)
+            printf("Created new node with id %d\n",node->id);
 	return node;
 }
 
@@ -97,6 +104,9 @@ int tfs_mkfs(char *filename, int nBytes){
 	templateBlk[2] = 1;
 	writeBlock(diskNum, 0, templateBlk);
 
+        if(DEBUG)
+            printf("Made File System with super block\n");
+
 	free(templateBlk);
 	close(diskNum);
 	return 1;
@@ -120,7 +130,10 @@ int tfs_mount(char *filename) {
 		return ERR_BADFS;
 
 	disk_mount = filename;
-	close(diskNum);
+
+        if(DEBUG)
+            printf("Mounted disk %s\n",disk_mount);
+        close(diskNum);
 	return 1;
 }
 
@@ -128,6 +141,8 @@ int tfs_unmount() {
 	if(!disk_mount)
 		return ERR_FILE_ALREADY_UNMOUNTED;
 
+        if(DEBUG)
+            printf("Unmounted disk %s\n",disk_mount);
 	disk_mount = NULL;
 	return 1;
 }
@@ -174,6 +189,9 @@ fileDescriptor tfs_openFile(char *name) {
 	memcpy(buff+4, name, strlen(name));
 	writeBlock(fd, i, buff);
 
+        if(DEBUG)
+             printf("Created inode block with filename %s\n",buff+4);
+
 	// add a new entry in drt that refers to this filename
 	// returns a fileDescriptor (temp->id)
 	drt_t *temp;
@@ -182,10 +200,16 @@ fileDescriptor tfs_openFile(char *name) {
 		temp->fileName = name;
 		temp->access = 1;
 		dynamicResourceTable = temp;
+        
+        if(DEBUG)
+            printf("Created first dynamic resource table node with filename %s\n",temp->fileName);
+
 	} else {
 		temp = addDrtNode(name, dynamicResourceTable, buff[3]);
 	}
-	close(fd);
+	
+        
+        close(fd);
 
 	return temp->id;
 }
@@ -258,6 +282,9 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
 		writeBlock(fd, i, buff); 
 	}
 
+        if(DEBUG)
+            printf("Write to free blocks starting at index %d and ending at %d. Wrote to the file extent -> %s\n",startIndex, endIndex,buff+4);
+
 	/* inode update (1st block occurrence and size) */
 	for(i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE && !found; i++){
 		if(readBlock(fd, i, buff) < 0)
@@ -274,7 +301,11 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
 	}
 	if(!found)
 		return ERR_NOINODEFOUND;
-	close(fd);
+	
+        if(DEBUG)
+            printf("Updated inode block to point to index %d and have size %d %d\n",buff[2],buff[13],buff[14]);
+        
+        close(fd);
 
 	return 1;
 }
@@ -303,10 +334,6 @@ int tfs_deleteFile(fileDescriptor FD)
 	if (!temp)
 		return ERR_BADFILE;
 
-	/*if(!temp->access)
-		return ERR_READONLY;
-	*/
-
 	fileName = temp->fileName;
 
 	/* looking for inode block */
@@ -333,11 +360,15 @@ int tfs_deleteFile(fileDescriptor FD)
 	/*deleting inode */
 	writeBlock(fd, i,buff);
 
+        if(DEBUG)
+            printf("Deleted inode block at index %d\n",i);
 	/*deleting file extents*/
 	for(i = firstBlock; i <= firstBlock + numBlocks; i++) {
 		writeBlock(fd, i, buff);    
 	}
 
+        if(DEBUG)
+            printf("Deleted file extents from index %d to %d\n",firstBlock, firstBlock+numBlocks);
 	removeDrtNode(FD);
 	close(fd);
 
@@ -393,7 +424,10 @@ int tfs_readByte(fileDescriptor FD, char *buffer)
 	if (buff[0] != 3)
 		return buff[0];//ERR_REACHEDEOF;
 	*buffer = buff[tempFP+4];
-	temp->fileptr++;
+        temp->fileptr++;
+        
+        if(DEBUG)
+            printf("Read Byte %c. Pointer now at index %d\n",*buffer,temp->fileptr);
 	close(fd);
 	return 1;
 }
@@ -417,6 +451,8 @@ int tfs_seek(fileDescriptor FD, int offset)
 
 	temp->fileptr = offset;
 
+        if(DEBUG)
+            printf("Seeked pointer to index %d\n",temp->fileptr);
 	return 1;
 }
 
@@ -460,16 +496,20 @@ int tfs_rename(fileDescriptor FD, char *name){
 	if(!found)
 		return ERR_NOINODEFOUND;
 
-	/* looking for inode block */
-	//printf("inode block name changes from %s to ",buff+4);
+        /* looking for inode block */
+	if(DEBUG)
+	    printf("Inode block name changes from %s to ",buff+4);
 	strcpy(buff+4,name);
 	writeBlock(fd,inodeLoc,buff);
-	//printf("%s\n",buff+4);
+	if(DEBUG)
+            printf("%s\n",buff+4);
 
 	/* change name in drt */
-	//printf("drt name changed from %s to ",temp->fileName);
+	if(DEBUG)
+            printf("Drt name changed from %s to ",temp->fileName);
 	temp->fileName = name;
-	//printf("%s\n",temp->fileName);
+	if(DEBUG)
+            printf("%s\n",temp->fileName);
 
 	close(fd);
 	return 1;
@@ -479,7 +519,7 @@ int tfs_readdir(){
 
 	drt_t *temp = dynamicResourceTable;
 
-	printf("***** Files and Directories *****\n");
+	printf("***** List of Files and Directories *****\n");
 
 	while(temp){
 		printf("%s\n",temp->fileName);
@@ -519,7 +559,8 @@ int tfs_makeRO(char *name) {
 	if(!found)
 		return ERR_NOINODEFOUND;
 	else {
-		printf("%s access changes to Read-Only(%d)\n",name, buff[3]);
+	    if(DEBUG)	
+                printf("%s access changes to Read-Only(%d)\n",name, buff[3]);
 		return 1;
 	}
 
@@ -554,7 +595,8 @@ int tfs_makeRW(char *name) {
 	if(!found)
 		return ERR_NOINODEFOUND;
 	else {
-		printf("%s access changes to Read-Write(%d)\n",name, buff[3]);
+	    if(DEBUG)	
+                printf("%s access changes to Read-Write(%d)\n",name, buff[3]);
 		return 1;
 	}
 }
@@ -611,6 +653,8 @@ int tfs_writeByte(fileDescriptor FD, unsigned int data) {
 	readBlock(fd,currBlock+firstBlock,buff); 
 	buff[tempFP+4] = data;
 	writeBlock(fd,currBlock+firstBlock,buff);
-	close(fd);
+	if(DEBUG)
+            printf("Wrote %c to byte at block %d\n",buff[tempFP+4],currBlock+firstBlock);
+        close(fd);
 	return 1;
 }
