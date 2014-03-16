@@ -352,6 +352,7 @@ int tfs_readByte(fileDescriptor FD, char *buffer)
     tempFP = temp->fileptr - (BLOCKSIZE * currBlock);
     readBlock(fd,currBlock+firstBlock,buff); 
     *buffer = buff[tempFP+4];
+    printf("%c\n", *buffer);
     temp->fileptr++;
     close(fd);
     return 1;
@@ -359,5 +360,15 @@ int tfs_readByte(fileDescriptor FD, char *buffer)
 
 int tfs_seek(fileDescriptor FD, int offset)
 {
-	return 0;
+    drt_t *temp = dynamicResourceTable;
+
+    while(temp){
+        if(temp->id == FD){
+            break;
+        }
+        temp = temp->next;
+    }
+    temp->fileptr = offset;
+
+    return 1;
 }

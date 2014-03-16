@@ -22,5 +22,8 @@ int main(void) {
     printf("TFS Read Byte File 2: %d\n",tfs_readByte(file2,&read));
     printf("TFS Read Byte File 2: %d\n",tfs_readByte(file2,&read));
     printf("TFS Read Byte File 2: %d\n",tfs_readByte(file2,&read));
+
+    printf("TFS Seek File 2: %d\n",tfs_seek(file2,11));
+    printf("TFS Read Byte File 2: %d\n",tfs_readByte(file2,&read));
     return 0;
 } 
