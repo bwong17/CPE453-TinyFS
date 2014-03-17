@@ -1,3 +1,27 @@
 Barbara Wong
 Ryan Suarez
 Andrew Weinfield
+
+1.) Our program works pretty well with the testing we have done.  We are not sure how
+you are planning on testing it, but we are confident than it will not seg fault
+with whatever tests you plan on giving it.  It will however return error codes
+as integers which will in turn cause other functions to fail and return error codes
+but it should make it to the end of the script.  The error codes can be found in
+TinyFS_errno.h.  Our Demo program demonstrates all the various functionality of the program
+and should be read almost as a narrative as the program is run.
+
+2.) The additional functionality is listed below and can be seen in our Demo program
+mixed in with the required functionality.  Please give the demo program a read as we 
+believe we have all the evidence there that the program is functional including the additional
+features.
+
+The additional features we included are :
+ a. display fragments
+ b. directory listing and renaming
+ d. read-only and writeByte support
+ e. timestamps
+
+3.) We managed to solve all of the bugs we could think of during the testing phase
+of the program.  We believe we accounted for most of the possible test cases in
+our demo program.  Once again please give it an actual read to follow our logic
+and proof of this.
