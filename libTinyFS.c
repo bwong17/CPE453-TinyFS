@@ -209,7 +209,8 @@ fileDescriptor tfs_openFile(char *name) {
 		memcpy(buff+15, &now, sizeof(time_t)); /* set creation time */
 		memcpy(buff+19, &now, sizeof(time_t)); /* set access time */
 		memcpy(buff+23, &now, sizeof(time_t)); /* set modification time */
-		writeBlock(fd, i, buff);
+		printf("IN OPEN, inode is %d\n",i);
+                writeBlock(fd, i, buff);
 
 		if(DEBUG)
 			printf("Created inode block with filename %s\n",buff+4);
@@ -259,8 +260,9 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
 	numBlocks = ceil((double)size / (double)BLOCKSIZE);
 
 	while(temp){
+            printf("TEMP: %s\n",temp->fileName);
 		if(temp->id == FD){
-			break;
+		    break;
 		}
 		temp = temp->next;
 	}
@@ -269,7 +271,8 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
 
 	if(!temp->access)
 		return ERR_READONLY;
-	fileName = temp->fileName;
+	
+        fileName = temp->fileName;
 
 	found = 0;
 	/* find inode */
@@ -277,15 +280,19 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
 		if(readBlock(fd, i, buff) < 0)
 			return ERR_NOMORESPACE;
 		if(buff[0] == 2){
+                    printf("Comparing %s to %s\n",fileName, buff+4);
 			if(!strcmp(fileName, buff+4)){
 				found = 1;
 				inode = i;
+                                printf("inode before break:%d",inode);
+                                break;
 			}
 		}
 	}
 	if(!found)
 		return ERR_NOINODEFOUND;
 	found = 1;
+        printf("inode after break:%d",inode);
 
 	/* find first free "numBlocks" block occurences to write to */
 	for (i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE; i++) {
@@ -338,7 +345,7 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
 	writeBlock(fd, inode, buff);
 	
         if(DEBUG)
-            printf("Updated inode block to point to index %d and have size %d %d\n",buff[2],buff[13],buff[14]);
+            printf("Updated inode block %d to point to index %d and have size %d %d\n",inode, buff[2],buff[13],buff[14]);
         
         close(fd);
 
@@ -399,7 +406,7 @@ int tfs_deleteFile(fileDescriptor FD)
         if(DEBUG)
             printf("Deleted inode block at index %d\n",i);
 	/*deleting file extents*/
-	for(i = firstBlock; i <= firstBlock + numBlocks; i++) {
+	for(i = firstBlock; i < firstBlock + numBlocks; i++) {
 		writeBlock(fd, i, buff);    
 	}
 
