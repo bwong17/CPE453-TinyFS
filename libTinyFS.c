@@ -10,7 +10,7 @@
 #include "libTinyFS.h"
 #include "TinyFS_errno.h"
 
-#define DEBUG 1
+#define DEBUG 0 
 
 static char *disk_mount = NULL;
 static drt_t *dynamicResourceTable = NULL;
@@ -179,7 +179,6 @@ fileDescriptor tfs_openFile(char *name) {
 		if(readBlock(fd, i, buff) < 0)
 			return ERR_NOMORESPACE;
 		if(buff[0] == 2){
-			printf("FOUND FILE : %s", buff+4);
 			if(!strcmp(name, buff+4)){
 				found = 1;
 				break;
@@ -209,7 +208,6 @@ fileDescriptor tfs_openFile(char *name) {
 		memcpy(buff+15, &now, sizeof(time_t)); /* set creation time */
 		memcpy(buff+19, &now, sizeof(time_t)); /* set access time */
 		memcpy(buff+23, &now, sizeof(time_t)); /* set modification time */
-		printf("IN OPEN, inode is %d\n",i);
                 writeBlock(fd, i, buff);
 
 		if(DEBUG)
@@ -260,7 +258,6 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
 	numBlocks = ceil((double)size / (double)BLOCKSIZE);
 
 	while(temp){
-            printf("TEMP: %s\n",temp->fileName);
 		if(temp->id == FD){
 		    break;
 		}
@@ -280,11 +277,9 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
 		if(readBlock(fd, i, buff) < 0)
 			return ERR_NOMORESPACE;
 		if(buff[0] == 2){
-                    printf("Comparing %s to %s\n",fileName, buff+4);
 			if(!strcmp(fileName, buff+4)){
 				found = 1;
 				inode = i;
-                                printf("inode before break:%d",inode);
                                 break;
 			}
 		}
@@ -292,7 +287,6 @@ int tfs_writeFile(fileDescriptor FD, char *buffer, int size)
 	if(!found)
 		return ERR_NOINODEFOUND;
 	found = 1;
-        printf("inode after break:%d",inode);
 
 	/* find first free "numBlocks" block occurences to write to */
 	for (i = 0; i < DEFAULT_DISK_SIZE / BLOCKSIZE; i++) {
@@ -638,7 +632,6 @@ int tfs_makeRO(char *name) {
 			printf("%s access changes to Read-Only(%d)\n",name, buff[3]);
 		return 1;
 	}
-
 }
 
 int tfs_makeRW(char *name) {
