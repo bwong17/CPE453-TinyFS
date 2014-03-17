@@ -15,7 +15,7 @@ int main(void) {
 	printf(">>Start TinyFsDemo program:\n");
 	
 	printf("tfs_mkfs implementation test: \n\
-	 \tCreating new disk 'tinyFSDisk' returns: %d\n",tfs_mkfs("tinyFSDisk",DEFAULT_DISK_SIZE));
+	 \tCreating new disk 'tinyFSDisk' returns: %d\n",tfs_mkfs(DEFAULT_DISK_NAME,DEFAULT_DISK_SIZE));
 
 	printf("tfs_mmount(tinyFsDisk) returns: %d\n", tfs_mount("tinyFSDisk"));
 	printf("Currently mounted disk 'tinyFsDisk' looks like...\n");
