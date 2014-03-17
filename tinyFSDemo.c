@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "libTinyFS.h"
 #include <time.h>
-
+#include <unistd.h>
 int main(void) {
 
 	int file1, file2, file3;
@@ -38,7 +38,7 @@ int main(void) {
 	tfs_displayFragments();
 	
 	printf("Let's open and write some data to another file after a quick sleep to change the creation date...\n");
-	sleep(2);
+	sleep(1);
 	printf("tfs_openFile('test2') returns: %d\n",file2 = tfs_openFile("test2"));
 	printf("After opening a new file, 'tinyFsDisk' looks like...\n");
 	printf("But tfs_readdir() just to be sure...\n");
